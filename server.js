@@ -14,6 +14,9 @@ const {
   SEND_GROUP_MESSAGE,
   GROUP_MESSAGE_SUCCESS,
   GROUP_MESSAGE_FAILED,
+  SEND_VOTE,
+  VOTE_SUCCESS,
+  VOTE_FAILED,
 } = require('./lib/events');
 const connectDB = require('./lib/db');
 const handlers = require('./lib/handlers');
@@ -93,6 +96,23 @@ io.on('connection', (socket) => {
       io.to(groupId).emit(GROUP_MESSAGE_SUCCESS);
     } else {
       io.to(groupId).emit(GROUP_MESSAGE_FAILED);
+    }
+  });
+
+  socket.on(SEND_VOTE, async (data) => {
+    const { groupId, pollId, userId, decisionBoolean } = data;
+
+    const sendVoteResult = await handlers.submitVote(
+      pollId,
+      userId,
+      decisionBoolean
+    );
+    console.log(sendVoteResult);
+    if (sendVoteResult.success) {
+      io.to(groupId).emit(POPULATE_GROUP_CHAT);
+      io.to(groupId).emit(VOTE_SUCCESS);
+    } else {
+      io.to(groupId).emit(VOTE_FAILED);
     }
   });
 });
