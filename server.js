@@ -17,6 +17,11 @@ const {
   SEND_VOTE,
   VOTE_SUCCESS,
   VOTE_FAILED,
+  CREATE_POLL,
+  CREATE_POLL_SUCCESS,
+  CREATE_POLL_FAILED,
+  JOIN_LIST,
+  MAKE_OFFLINE,
 } = require('./lib/events');
 const connectDB = require('./lib/db');
 const handlers = require('./lib/handlers');
@@ -49,6 +54,9 @@ io.on('connection', (socket) => {
       targetUserId
     );
 
+    // change user online status
+    await handlers.makeOnline;
+
     io.to(chatRoomId).emit(POPULATE_CHAT, chatRoomdata);
   });
 
@@ -69,6 +77,12 @@ io.on('connection', (socket) => {
     } else {
       io.to(chatRoomId).emit(MESSAGE_FAILED);
     }
+  });
+
+  socket.on(MAKE_OFFLINE, async (data) => {
+    const { userId } = data;
+
+    await handlers.setUserOffline(userId);
   });
 
   socket.on(JOIN_GROUP_ROOM, async (data) => {
@@ -107,12 +121,46 @@ io.on('connection', (socket) => {
       userId,
       decisionBoolean
     );
-    console.log(sendVoteResult);
     if (sendVoteResult.success) {
       io.to(groupId).emit(POPULATE_GROUP_CHAT);
       io.to(groupId).emit(VOTE_SUCCESS);
     } else {
-      io.to(groupId).emit(VOTE_FAILED);
+      io.to(groupId).emit(VOTE_FAILED, sendVoteResult);
+    }
+  });
+
+  socket.on(CREATE_POLL, async (data) => {
+    const { pollName, groupId, userId, creatorUsername } = data;
+
+    const createPollResult = await handlers.createPoll(
+      pollName,
+      groupId,
+      userId,
+      creatorUsername
+    );
+
+    if (createPollResult.success) {
+      io.to(groupId).emit(POPULATE_GROUP_CHAT);
+      io.to(groupId).emit(CREATE_POLL_SUCCESS);
+    } else {
+      io.to(groupId).emit(CREATE_POLL_FAILED, createPollResult);
+    }
+  });
+
+  socket.on(JOIN_LIST, async (data) => {
+    const { message, userId, username, groupId } = data;
+
+    console.log('Joining list....');
+
+    const joinListResult = await handlers.joinList(
+      message,
+      userId,
+      username,
+      groupId
+    );
+
+    if (joinListResult.success) {
+      io.to(groupId).emit(POPULATE_GROUP_CHAT);
     }
   });
 });
